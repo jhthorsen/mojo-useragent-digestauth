@@ -20,10 +20,14 @@ Currently, this module only support async requests.
   use Mojo::UserAgent::DigestAuth;
   my $ua = Mojo::UserAgent->new;
 
-  $ua->$_request_with_digest_auth($method, $url, $headers, $cb);
-  $ua->$_request_with_digest_auth($method, $url, $cb);
+  # blocking
+  $tx = $ua->$_request_with_digest_auth($method, $url, $headers);
 
-  $ua->$_request_with_digest_auth(
+  # non-blocking
+  $ua = $ua->$_request_with_digest_auth($method, $url, $headers, $cb);
+  $ua = $ua->$_request_with_digest_auth($method, $url, $cb);
+
+  $ua = $ua->$_request_with_digest_auth(
     get => "http://example.com", sub {
       my ($ua, $tx) = @_;
     }
@@ -37,28 +41,39 @@ use Mojo::Util 'md5_sum';
 use constant DEBUG => $ENV{MOJO_USERAGENT_DIGEST_AUTH_DEBUG} || 0;
 
 our $VERSION = '0.01';
-
 our @EXPORT = qw( $_request_with_digest_auth );
 my $NC = 0;
 
 our $_request_with_digest_auth = sub {
-  my $cb = pop;
+  my $cb = ref $_[-1] eq 'CODE' ? pop : undef;
   my $ua = shift;
   my @args = @_;
   my $tx = $ua->build_tx(@args);
   my @userinfo = split ':', $tx->req->url->userinfo || '';
+  my $res;
 
-  $tx->req->url->userinfo(undef);
+  $cb ||= sub { $res = $_[1] };
+  $tx->req->url($tx->req->url->clone)->url->userinfo(undef);
+  warn "[DigestAuth] url=@{[$tx->req->url]}\n" if DEBUG;
 
-  return $ua->start($tx, sub {
-    my ($ua, $tx) = @_;
-    my $code = $tx->res->code || '';
-    return $ua->$cb($tx) unless @userinfo == 2 and !$tx->res->headers->header('WWW-Authenticate');
-    my $next_tx = $ua->build_tx(@args);
-    $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, @userinfo));
-    $next_tx->req->headers->accept('*/*');
-    $ua->start($next_tx, $cb);
-  });
+  Mojo::IOLoop->delay(
+    sub { $ua->start($tx, shift->begin) },
+    sub {
+      my ($delay, $tx) = @_;
+      my $code = $tx->res->code || '';
+      warn "[DigestAuth] code=$code\n" if DEBUG;
+      return $ua->$cb($tx) if @userinfo != 2 or !$tx->res->headers->header('WWW-Authenticate');
+      warn "[DigestAuth] Digest authorization...\n" if DEBUG;
+      my $next_tx = $ua->build_tx(@args);
+      $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, @userinfo));
+      $next_tx->req->headers->accept('*/*');
+      $ua->start($next_tx, $delay->begin);
+    },
+    sub { $ua->$cb($_[1]) },
+  )->wait;
+
+  return $res if $res;
+  return $ua;
 };
 
 sub _digest_kv {
@@ -67,7 +82,7 @@ sub _digest_kv {
   my $nc         = sprintf '%08X', ++$NC;
   my ($ha1, $ha2, $response);
 
-  $auth_param{client_nonce} = 'MTx0NzAz'; # TODO
+  $auth_param{client_nonce} = _generate_nonce(time);
   $auth_param{nonce} //= '__UNDEF__';
   $auth_param{realm} //= '';
 
@@ -88,13 +103,21 @@ sub _digest_kv {
     qq(realm="$auth_param{realm}"),
     qq(nonce="$auth_param{nonce}"),
     qq(uri="@{[$tx->req->url->path]}"),
-    qq(cnonce="$auth_param{client_nonce}"),
+    $auth_param{qop} ? ("qop=$auth_param{qop}") : (),
     "nc=$nc",
-    $auth_param{qop} ? (qq(qop="$auth_param{qop}")) : (),
+    qq(cnonce="$auth_param{client_nonce}"),
     qq(response="$response"),
     $auth_param{opaque} ? (qq(opaque="$auth_param{opaque}")) : (),
     qq(algorithm="MD5"),
   );
+}
+
+sub _generate_nonce {
+  my $time = shift;
+  my $nonce = Mojo::Util::b64_encode(join ' ', $time, Mojo::Util::hmac_sha1_sum($time), '');
+  chomp $nonce;
+  $nonce =~ s!=+$!!;
+  return $nonce;
 }
 
 sub _ha1 {
