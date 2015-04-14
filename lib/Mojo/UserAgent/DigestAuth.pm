@@ -6,7 +6,7 @@ Mojo::UserAgent::DigestAuth - Allow Mojo::UserAgent to execute digest auth reque
 
 =head1 VERSION
 
-0.01
+0.02
 
 =head1 DESCRIPTION
 
@@ -40,7 +40,7 @@ use Mojo::UserAgent;
 use Mojo::Util 'md5_sum';
 use constant DEBUG => $ENV{MOJO_USERAGENT_DIGEST_AUTH_DEBUG} || 0;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our @EXPORT  = qw( $_request_with_digest_auth );
 my $NC = 0;
 

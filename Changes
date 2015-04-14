@@ -1,6 +1,9 @@
 Revision history for perl distribution Mojo-UserAgent-DigestAuth
 
-0.01 2015-04-14T10:12:36+0200
+0.02 2015-04-14T10:16:30+0200
 
+ - Fix 00-basic.t
+
+0.01 2015-04-14T10:12:36+0200
  - Mojo::UserAgent::DigestAuth exports $_request_with_digest_auth
 
