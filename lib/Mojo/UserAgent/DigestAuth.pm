@@ -41,14 +41,14 @@ use Mojo::Util 'md5_sum';
 use constant DEBUG => $ENV{MOJO_USERAGENT_DIGEST_AUTH_DEBUG} || 0;
 
 our $VERSION = '0.01';
-our @EXPORT = qw( $_request_with_digest_auth );
+our @EXPORT  = qw( $_request_with_digest_auth );
 my $NC = 0;
 
 our $_request_with_digest_auth = sub {
-  my $cb = ref $_[-1] eq 'CODE' ? pop : undef;
-  my $ua = shift;
-  my @args = @_;
-  my $tx = $ua->build_tx(@args);
+  my $cb       = ref $_[-1] eq 'CODE' ? pop : undef;
+  my $ua       = shift;
+  my @args     = @_;
+  my $tx       = $ua->build_tx(@args);
   my @userinfo = split ':', $tx->req->url->userinfo || '';
   my $res;
 
@@ -79,7 +79,7 @@ our $_request_with_digest_auth = sub {
 sub _digest_kv {
   my ($tx, @userinfo) = @_;
   my %auth_param = $tx->res->headers->header('WWW-Authenticate') =~ /(\w+)="?([^",]+)"?/g;
-  my $nc         = sprintf '%08X', ++$NC;
+  my $nc = sprintf '%08X', ++$NC;
   my ($ha1, $ha2, $response);
 
   $auth_param{client_nonce} = _generate_nonce(time);
@@ -91,7 +91,8 @@ sub _digest_kv {
 
   if ($auth_param{qop} and $auth_param{qop} =~ /^auth/) {
     $response = md5_sum join ':', $ha1, $auth_param{nonce}, $nc, $auth_param{client_nonce}, $auth_param{qop}, $ha2;
-    warn "RESPONSE: MD5($ha1:$auth_param{nonce}:$nc:$auth_param{client_nonce}:$auth_param{qop}:$ha2) = $response\n" if DEBUG;
+    warn "RESPONSE: MD5($ha1:$auth_param{nonce}:$nc:$auth_param{client_nonce}:$auth_param{qop}:$ha2) = $response\n"
+      if DEBUG;
   }
   else {
     $response = md5_sum join ':', $ha1, $auth_param{nonce}, $ha2;
@@ -99,16 +100,11 @@ sub _digest_kv {
   }
 
   return (
-    qq(username="$userinfo[0]"),
-    qq(realm="$auth_param{realm}"),
-    qq(nonce="$auth_param{nonce}"),
-    qq(uri="@{[$tx->req->url->path]}"),
-    $auth_param{qop} ? ("qop=$auth_param{qop}") : (),
-    "nc=$nc",
-    qq(cnonce="$auth_param{client_nonce}"),
-    qq(response="$response"),
-    $auth_param{opaque} ? (qq(opaque="$auth_param{opaque}")) : (),
-    qq(algorithm="MD5"),
+    qq(username="$userinfo[0]"),    qq(realm="$auth_param{realm}"),
+    qq(nonce="$auth_param{nonce}"), qq(uri="@{[$tx->req->url->path]}"),
+    $auth_param{qop} ? ("qop=$auth_param{qop}") : (), "nc=$nc",
+    qq(cnonce="$auth_param{client_nonce}"), qq(response="$response"),
+    $auth_param{opaque} ? (qq(opaque="$auth_param{opaque}")) : (), qq(algorithm="MD5"),
   );
 }
 
@@ -129,8 +125,11 @@ sub _ha1 {
     warn "HA1: MD5($username:$auth_param->{realm}:$password) = $res\n" if DEBUG;
   }
   else {
-    $res = md5_sum md5_sum(join ':', $username, $auth_param->{realm}, $password), $auth_param->{nonce}, $auth_param->{client_nonce};
-    warn "HA1: MD5(MD5($username:$auth_param->{realm}:$password), $auth_param->{nonce}, $auth_param->{client_nonce}) = $res\n" if DEBUG;
+    $res = md5_sum md5_sum(join ':', $username, $auth_param->{realm}, $password), $auth_param->{nonce},
+      $auth_param->{client_nonce};
+    warn
+      "HA1: MD5(MD5($username:$auth_param->{realm}:$password), $auth_param->{nonce}, $auth_param->{client_nonce}) = $res\n"
+      if DEBUG;
   }
 
   return $res;
@@ -138,7 +137,7 @@ sub _ha1 {
 
 sub _ha2 {
   my ($auth_param, $req) = @_;
-  my $method     = uc $req->method;
+  my $method = uc $req->method;
   my $res;
 
   if (!$auth_param->{qop} or $auth_param->{qop} eq 'auth') {
@@ -146,7 +145,7 @@ sub _ha2 {
     warn "HA2: MD5($method:@{[$req->url->path]}) = $res\n" if DEBUG;
   }
   else {
-    $res = md5_sum join ':', $method, $req->url->path, md5_sum('entityBody'); #  TODO: entityBody
+    $res = md5_sum join ':', $method, $req->url->path, md5_sum('entityBody');    #  TODO: entityBody
     warn "HA2: MD5(TODO) = $res\n" if DEBUG;
   }
 
