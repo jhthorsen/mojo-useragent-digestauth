@@ -1,5 +1,5 @@
-Changelog for Mojo::UserAgent::DigestAuth
+Revision history for perl distribution Mojo-UserAgent-DigestAuth
 
-0.01
-       * Started project
+0.01 Not Released
+ - Mojo::UserAgent::DigestAuth exports $_request_with_digest_auth
 

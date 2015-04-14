@@ -13,7 +13,7 @@ Mojo::UserAgent::DigestAuth - Allow Mojo::UserAgent to execute digest auth reque
 L<Mojo::UserAgent::DigestAuth> is a L<Mojo::UserAgent> "plugin" which can
 handle 401 digest auth responses from the server.
 
-Currently, this module only support async requests.
+See L<http://en.wikipedia.org/wiki/Digest_access_authentication>.
 
 =head1 SYNOPSIS
 
