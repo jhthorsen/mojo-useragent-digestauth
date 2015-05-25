@@ -36,6 +36,7 @@ ok $main::_request_with_digest_auth, 'request_with_digest_auth';
     return $c->$authenticate unless $header;
     my %auth_param = $header =~ /(\w+)="?([^",]+)"?/g;
     my $invalid = join ' ', grep { $auth_param{$_} ne $expected{$_} } sort keys %expected;
+    $c->res->headers->header('D-Client-Nonce' => $c->req->headers->header('D-Client-Nonce') || 'undef');
     return $c->render(text => $invalid, status => 403) if $invalid;
     return $c->render(text => 'success');
   };
@@ -50,12 +51,8 @@ $t->get_ok('/dir/index.html')->status_is(401)->content_is('missing authorization
 my $tx = $t->ua->$_request_with_digest_auth(get => '/dir/index.html');
 $t->tx($tx)->status_is(401)->content_is('missing authorization');
 
-{
-  no warnings 'redefine';
-  local *Mojo::UserAgent::DigestAuth::_generate_nonce = sub {'0a4f113b'};
-  $t->tx($t->ua->$_request_with_digest_auth(get => $url))->status_is(200)->content_is('success', 'success');
-}
+$t->tx($t->ua->$_request_with_digest_auth(get => $url, { 'D-Client-Nonce' => '0a4f113b' }))->status_is(200)->header_is('D-Client-Nonce', 'undef')->content_is('success', 'success');
 
-$t->tx($t->ua->$_request_with_digest_auth(get => $url))->status_is(403)->content_is('cnonce nc response');
+$t->tx($t->ua->$_request_with_digest_auth(get => $url))->status_is(403)->header_is('D-Client-Nonce', 'undef')->content_is('cnonce nc response');
 
 done_testing;

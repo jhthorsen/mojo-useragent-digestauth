@@ -1,7 +1,9 @@
 Revision history for perl distribution Mojo-UserAgent-DigestAuth
 
-0.02 2015-04-14T10:16:30+0200
+0.03 Not released
+ - Allow setting D-Client-Nonce as header to override random client nonce #1
 
+0.02 2015-04-14T10:16:30+0200
  - Fix 00-basic.t
 
 0.01 2015-04-14T10:12:36+0200
