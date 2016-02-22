@@ -3,7 +3,7 @@ NAME
     auth requests
 
 VERSION
-    0.03
+    0.04
 
 DESCRIPTION
     Mojo::UserAgent::DigestAuth is a Mojo::UserAgent "plugin" which can
