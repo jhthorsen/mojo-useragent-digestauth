@@ -60,11 +60,11 @@ our @EXPORT  = qw( $_request_with_digest_auth );
 my $NC = 0;
 
 our $_request_with_digest_auth = sub {
-  my $cb       = ref $_[-1] eq 'CODE' ? pop : undef;
-  my $ua       = shift;
-  my @args     = @_;
-  my $tx       = $ua->build_tx(@args);
-  my $args     = {};
+  my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
+  my $ua   = shift;
+  my @args = @_;
+  my $tx   = $ua->build_tx(@args);
+  my $args = {};
   my $res;
 
   @$args{qw(username password)} = split ':', $tx->req->url->userinfo || '';
@@ -84,7 +84,8 @@ our $_request_with_digest_auth = sub {
       my ($delay, $tx) = @_;
       my $code = $tx->res->code || '';
       warn "[DigestAuth] code=$code\n" if DEBUG;
-      return $ua->$cb($tx) unless 3 == grep { defined $_ } @$args{qw(username password)}, $tx->res->headers->header('WWW-Authenticate');
+      return $ua->$cb($tx)
+        unless 3 == grep { defined $_ } @$args{qw(username password)}, $tx->res->headers->header('WWW-Authenticate');
       warn "[DigestAuth] Digest authorization...\n" if DEBUG;
       my $next_tx = _clean_tx($ua->build_tx(@args));
       $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, $args));
@@ -128,8 +129,8 @@ sub _digest_kv {
   }
 
   return (
-    qq(username="$args->{username}"),    qq(realm="$auth_param{realm}"),
-    qq(nonce="$auth_param{nonce}"), qq(uri="@{[$tx->req->url->path]}"),
+    qq(username="$args->{username}"), qq(realm="$auth_param{realm}"),
+    qq(nonce="$auth_param{nonce}"),   qq(uri="@{[$tx->req->url->path]}"),
     $auth_param{qop} ? ("qop=$auth_param{qop}") : (), "nc=$nc",
     qq(cnonce="$auth_param{client_nonce}"), qq(response="$response"),
     $auth_param{opaque} ? (qq(opaque="$auth_param{opaque}")) : (), qq(algorithm="MD5"),
