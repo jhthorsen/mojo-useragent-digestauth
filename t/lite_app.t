@@ -18,7 +18,9 @@ get '/nonblocking' => sub {
   my $c = shift;
   $c->delay(
     sub {
-      $c->ua->$_request_with_digest_auth(get => 'http://user:passwd@httpbin.org/digest-auth/auth/user/passwd' => shift->begin);
+      my $d = shift;
+      $c->ua->$_request_with_digest_auth(get => 'http://user:passwd@httpbin.org/digest-auth/auth/user/passwd' => $d->begin);
+      $c->ua->max_redirects(2)->get('http://www.google.com' => $d->begin);
     },
     sub {
       $c->render(json => $_[1]->res->json);
