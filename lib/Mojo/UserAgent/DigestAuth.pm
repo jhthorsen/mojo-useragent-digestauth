@@ -54,6 +54,8 @@ use Mojo::Base 'Exporter';
 use Mojo::UserAgent;
 use Mojo::Util 'md5_sum';
 use constant DEBUG => $ENV{MOJO_USERAGENT_DIGEST_AUTH_DEBUG} || 0;
+use Mojo::IOLoop;
+use Mojo::IOLoop::Delay;
 
 our $VERSION = '0.03';
 our @EXPORT  = qw( $_request_with_digest_auth );
@@ -74,12 +76,14 @@ our $_request_with_digest_auth = sub {
     _clean_tx($tx);
   }
 
+  my $ioloop = $cb ? Mojo::IOLoop->singleton : $ua->ioloop;
+
   $cb ||= sub { $res = $_[1] };
   $tx->req->url($tx->req->url->clone)->url->userinfo(undef);
   warn "[DigestAuth] url=@{[$tx->req->url]}\n" if DEBUG;
 
-  Mojo::IOLoop->delay(
-    sub { $ua->start($tx, shift->begin) },
+  Mojo::IOLoop::Delay->new->ioloop($ioloop)->steps(
+    sub { $ua->_start($ioloop, $tx, shift->begin) },
     sub {
       my ($delay, $tx) = @_;
       my $code = $tx->res->code || '';
@@ -89,7 +93,7 @@ our $_request_with_digest_auth = sub {
       my $next_tx = _clean_tx($ua->build_tx(@args));
       $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, $args));
       $next_tx->req->headers->accept('*/*');
-      $ua->start($next_tx, $delay->begin);
+      $ua->_start($ioloop, $next_tx, $delay->begin);
     },
     sub { $ua->$cb($_[1]) },
   )->wait;
