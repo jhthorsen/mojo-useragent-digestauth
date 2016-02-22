@@ -64,39 +64,50 @@ our $_request_with_digest_auth = sub {
   my $ua   = shift;
   my @args = @_;
   my $tx   = $ua->build_tx(@args);
-  my $args = {};
-  my $res;
+  my $auth = {};
 
-  @$args{qw(username password)} = split ':', $tx->req->url->userinfo || '';
+  @$auth{qw(username password)} = split ':', $tx->req->url->userinfo || '';
 
   if (my $client_nonce = $tx->req->headers->header('D-Client-Nonce')) {
-    $args->{client_nonce} = $client_nonce;
+    $auth->{client_nonce} = $client_nonce;
     _clean_tx($tx);
   }
 
-  $cb ||= sub { $res = $_[1] };
   $tx->req->url($tx->req->url->clone)->url->userinfo(undef);
   warn "[DigestAuth] url=@{[$tx->req->url]}\n" if DEBUG;
 
-  Mojo::IOLoop->delay(
-    sub { $ua->start($tx, shift->begin) },
-    sub {
-      my ($delay, $tx) = @_;
-      my $code = $tx->res->code || '';
-      warn "[DigestAuth] code=$code\n" if DEBUG;
-      return $ua->$cb($tx)
-        unless 3 == grep { defined $_ } @$args{qw(username password)}, $tx->res->headers->header('WWW-Authenticate');
-      warn "[DigestAuth] Digest authorization...\n" if DEBUG;
-      my $next_tx = _clean_tx($ua->build_tx(@args));
-      $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, $args));
-      $next_tx->req->headers->accept('*/*');
-      $ua->start($next_tx, $delay->begin);
-    },
-    sub { $ua->$cb($_[1]) },
-  )->wait;
+  my $build_next = sub {
+    my $tx = shift;
+    my $code = $tx->res->code || '';
+    warn "[DigestAuth] code=$code\n" if DEBUG;
+    return $tx
+      unless 3 == grep { defined $_ } @$auth{qw(username password)}, $tx->res->headers->header('WWW-Authenticate');
+    warn "[DigestAuth] Digest authorization...\n" if DEBUG;
+    my $next_tx = _clean_tx($ua->build_tx(@args));
+    $next_tx->req->headers->authorization(sprintf 'Digest %s', join ', ', _digest_kv($tx, $auth));
+    $next_tx->req->headers->accept('*/*');
+    $next_tx;
+  };
 
-  return $res if $res;
-  return $ua;
+  # non-blocking
+  if ($cb) {
+    Mojo::IOLoop->delay(
+      sub { $ua->start($tx, shift->begin) },
+      sub {
+        my ($delay, $tx) = @_;
+        my $next_tx = $build_next->($tx);
+        return $ua->$cb($tx) if $next_tx eq $tx;
+        return $ua->start($next_tx, $delay->begin);
+      },
+      sub { $ua->$cb($_[1]) },
+    );
+    return $ua;
+  }
+
+  # blocking
+  my $next_tx = $build_next->($ua->start($tx));
+  return $tx if $next_tx eq $tx;
+  return $ua->start($next_tx);
 };
 
 sub _clean_tx {
