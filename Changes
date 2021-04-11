@@ -1,5 +1,8 @@
 Revision history for perl distribution Mojo-UserAgent-DigestAuth
 
+0.05 Not Released
+ - Compatible with Mojolicious 9.10
+
 0.04 2016-02-22T18:27:13+0100
  - Fix blocking request while the IOLoop is running #2
    Contributor: Alexey Stavrov
