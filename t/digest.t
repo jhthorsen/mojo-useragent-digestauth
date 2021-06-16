@@ -45,7 +45,7 @@ ok $main::_request_with_digest_auth, 'request_with_digest_auth';
 }
 
 my $t   = Test::Mojo->new;
-my $url = Mojo::URL->new('/dir/index')->userinfo('Mufasa:Circle Of Life');
+my $url = Mojo::URL->new('/dir/index.html')->userinfo('Mufasa:Circle Of Life');
 
 $t->get_ok('/plain')->status_is(200)->content_is('no-auth-needed');
 $t->get_ok('/dir/index.html')->status_is(401)->content_is('missing authorization');
@@ -56,7 +56,6 @@ $t->tx($tx)->status_is(401)->content_is('missing authorization');
 $t->tx($t->ua->$_request_with_digest_auth(get => $url, {'D-Client-Nonce' => '0a4f113b'}))->status_is(200)
   ->header_is('D-Client-Nonce', 'undef')->content_is('success', 'success');
 
-$t->tx($t->ua->$_request_with_digest_auth(get => $url))->status_is(403)->header_is('D-Client-Nonce', 'undef')
-  ->content_is('cnonce nc response');
+$t->tx($t->ua->get($url))->status_is(403)->header_is('D-Client-Nonce', 'undef')->content_is('cnonce nc response');
 
 done_testing;
